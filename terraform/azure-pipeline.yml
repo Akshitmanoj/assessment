@@ -1,0 +1,53 @@
+### Minimal Pipeline For Terraform Stages ###
+
+trigger:
+- '*'
+
+pr:
+- '*'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+- stage: Build
+  jobs:
+  - job: Build
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.x'
+        addToPath: true
+    - script: |
+        # Install Terraform
+        terraform_version="1.0.5"
+        wget "https://releases.hashicorp.com/terraform/${terraform_version}/terraform_${terraform_version}_linux_amd64.zip" -O /tmp/terraform.zip
+        unzip -d /usr/local/bin/ /tmp/terraform.zip
+        terraform --version
+        # Initialize and validate
+        cd $(System.DefaultWorkingDirectory)-path-to-terraform-code
+        terraform init
+        terraform validate
+      displayName: 'Initialize and Validate Terraform'
+
+- stage: Plan
+  dependsOn: Build
+  jobs:
+  - job: Plan
+    steps:
+    - script: |
+        # Plan
+        cd $(System.DefaultWorkingDirectory)-path-to-terraform-code
+        terraform plan -out=tfplan
+      displayName: 'Terraform Plan'
+
+- stage: Apply
+  dependsOn: Plan
+  jobs:
+  - job: Apply
+    steps:
+    - script: |
+        # Apply
+        cd $(System.DefaultWorkingDirectory)-path-to-terraform-code
+        terraform apply "tfplan" -auto-approve
+      displayName: 'Terraform Apply'
